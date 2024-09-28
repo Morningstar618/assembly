@@ -1,8 +1,34 @@
-ORG 0x7c00  ;Originating from address `0x7c00` to make the BIOS load the bootloader from memory
-BITS 16     ;This will ensure that the Assembler will only assemble assembly instructions into 16-bit code
+ORG 0                   ;Originating from address `0` instead of `0x7c00` to prevent conflicts between the segment register
+                        ;values and the ORG address, when the BIOS loads the bootloader from memory.
 
+BITS 16                 ;This will ensure that the Assembler will only assemble assembly instructions into 16-bit code
+
+
+jmp 0x7c0:start         ;Ensuring that our `code segment` is also 0x7c0
 
 start:
+    cli                 ;Clearing (disabiling) Interrupts. We have done so, because we would be changing the values of the 
+                        ;segment registers and we wouldn't want some hardware interrupt now to interrupt us while we are 
+                        ;doing this because this is a very critical operation. Else, the segments won't be setup correctly.
+
+    mov ax, 0x7c0       
+    
+    mov ds, ax          ;Configuring segment registers with the `bootloader` address. The value cannot be moved directly to
+                        ;the `ds` register, so moved it to the `ax` register first.
+
+    mov es, ax
+
+    mov ax, 0x00        
+
+    mov ss, ax          ;Setting `stack segment` register to zero to prevent offsetting from the `stack pointer` register
+                        ;set below.
+
+    mov sp, 0x7c00      ;Setting the `stack pointer` to 0x7c00 as the address upwards from this memory location will be
+                        ;occupied by our bootloader or boot sector. And the stack grows downwards in memory, so because
+                        ;of this, it will not interfere with the memory that will be used by our bootloader.
+
+    sti                 ;Enable Interrupts
+
     mov si, message     ;storing the address of the message label into the `si` register (register to process strings [arrays])
     
     call print          ;calling the `print` routine
@@ -56,54 +82,53 @@ dw 0xAA55           ;Entering the 511th and 512th bytes as `0x55AA` for the `boo
                     ;bootloader to work. The 512 bytes in total comprises of our `boot sector`.
 
 
-;NOTE: This project can be booted using the `Qemu` qemu-system-x86_64 emulator.
+;NOTE: This project can be booted using the `Qemu` qemu-system-x86_64 emulator. Pass `-hda` as the argument when running
+;this project. This argument emulates a Hard Drive for our bootloader. It creates a disk whose type and location depends
+;on the machine type QEMU is emulating,
 
 
-/*
 
-##########################################
-############## Explanation ###############
-##########################################
-
-
-##### times 510-($ - $$) db 0 #######
-
-times 510-($ - $$) db 0
-times directive:
-
-The times directive is used to repeat a certain instruction or data a specific number of times. It's typically used to fill memory with a value or pad data to a specific size.
-510 - ($ - $$):
-
-510 refers to the size in bytes of the boot sector minus the last 2 bytes (which are reserved for the boot signature).
-$ is a special symbol in assembly that represents the current address (the address of the next instruction or data).
-$$ is a special symbol representing the beginning of the section (or in this case, the beginning of the boot sector).
-($ - $$) calculates the number of bytes from the start of the section (boot sector) to the current position $. This gives the number of bytes already written to the boot sector.
-So, 510 - ($ - $$) calculates how many bytes remain to reach the 510th byte of the boot sector.
-db 0:
-
-db stands for "define byte", and it inserts a byte of data.
-db 0 inserts a byte with the value 0 (i.e., a null byte).
-
-####### FINISHED ##########
+;##########################################
+;############## Explanation ###############
+;##########################################
 
 
-##### dw 0xAA55 #######
+;##### times 510-($ - $$) db 0 #######
+
+;times 510-($ - $$) db 0
+;times directive:
+
+;The times directive is used to repeat a certain instruction or data a specific number of times. It's typically used to fill memory with a value or pad data to a specific size.
+;510 - ($ - $$):
+
+;510 refers to the size in bytes of the boot sector minus the last 2 bytes (which are reserved for the boot signature).
+;$ is a special symbol in assembly that represents the current address (the address of the next instruction or data).
+;$$ is a special symbol representing the beginning of the section (or in this case, the beginning of the boot sector).
+;($ - $$) calculates the number of bytes from the start of the section (boot sector) to the current position $. This gives the number of bytes already written to the boot sector.
+;So, 510 - ($ - $$) calculates how many bytes remain to reach the 510th byte of the boot sector.
+;db 0:
+
+;db stands for "define byte", and it inserts a byte of data.
+;db 0 inserts a byte with the value 0 (i.e., a null byte).
+
+;####### FINISHED ##########
 
 
-The line dw 0xAA55 is placing the boot signature at the end of the boot sector. Here's a breakdown of what it does:
-
-dw 0xAA55
-dw directive:
-
-dw stands for "define word." In x86 assembly, a "word" is typically 2 bytes (16 bits).
-This directive stores a 16-bit (2-byte) value at the current memory location.
-0xAA55:
-
-This is the value being stored, written in hexadecimal (base 16).
-It is a magic number that serves as the boot signature. The specific value 0xAA55 is used by the BIOS to identify a valid boot sector.
-0xAA is the high byte, and 0x55 is the low byte when stored in little-endian format (which is typical on x86 systems).
+;##### dw 0xAA55 #######
 
 
-####### FINISHED ##########
+;The line dw 0xAA55 is placing the boot signature at the end of the boot sector. Here's a breakdown of what it does:
 
-*/
+;dw 0xAA55
+;dw directive:
+
+;dw stands for "define word." In x86 assembly, a "word" is typically 2 bytes (16 bits).
+;This directive stores a 16-bit (2-byte) value at the current memory location.
+;0xAA55:
+
+;This is the value being stored, written in hexadecimal (base 16).
+;It is a magic number that serves as the boot signature. The specific value 0xAA55 is used by the BIOS to identify a valid boot sector.
+;0xAA is the high byte, and 0x55 is the low byte when stored in little-endian format (which is typical on x86 systems).
+
+
+;####### FINISHED ##########
