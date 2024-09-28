@@ -4,9 +4,19 @@ ORG 0                   ;Originating from address `0` instead of `0x7c00` to pre
 BITS 16                 ;This will ensure that the Assembler will only assemble assembly instructions into 16-bit code
 
 
-jmp 0x7c0:start         ;Ensuring that our `code segment` is also 0x7c0
+_start:                 ;This label includes a Short Jump (Short Jump is a jump that is made within +/-128 bytes in
+    jmp short start     ;memory) that is expected by the BIOS Parameter Block (BPB) on some devices.
+    
+    nop                 ;Including a nop (No Operation) instruction as expected by the BPB.                    
+    
+
+times 33 db 0           ;Reserving 33 bytes for the BIOS Parameter Block configurations that may be made by the BIOS
+                        ;upon booting in a real device.
 
 start:
+    jmp 0x7c0:main      ;Ensuring that our `code segment` is also 0x7c0
+
+main:
     cli                 ;Clearing (disabiling) Interrupts. We have done so, because we would be changing the values of the 
                         ;segment registers and we wouldn't want some hardware interrupt now to interrupt us while we are 
                         ;doing this because this is a very critical operation. Else, the segments won't be setup correctly.
