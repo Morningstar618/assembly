@@ -13,22 +13,10 @@ _start:                 ;This label includes a Short Jump (Short Jump is a jump 
 times 33 db 0           ;Reserving 33 bytes for the BIOS Parameter Block configurations that may be made by the BIOS
                         ;upon booting in a real device.
 
+
 start:
     jmp 0x7c0:main      ;Ensuring that our `code segment` is also 0x7c0
 
-handle_zero:            ;Custom Interupt definition for `int 0`. This interrupt definition when called will print
-    mov ah, 0eh         ;the character `A` on the screen. Although to make it work, we will have to modify the
-    mov al, 'A'         ;interrupt vector table.
-    mov bx, 0x00
-    int 0x10
-    iret
-
-handle_one:             ;Creating another custom interrupt like the previous one. Only that this one prints out `V` on
-    mov ah, 0eh         ;the screen.       
-    mov al, 'V'
-    mov bx, 0x00
-    int 0x10
-    iret
 
 main:
     cli                 ;Clearing (disabiling) Interrupts. We have done so, because we would be changing the values of the 
@@ -53,21 +41,33 @@ main:
 
     sti                 ;Enable Interrupts
 
-    mov word[ss:0x00], handle_zero  ;Moving and storing our `handle_zero` interrupt at the address 0x00
-    mov word[ss:0x02], 0x7c0        ;Moving the boot segment value at address 0x02
+    mov ah, 2           ;READ SECTOR COMMAND
 
-    mov word[ss:0x04], handle_one   ;same as above
-    mov word[ss:0x06], 0x7c0
-
-    ;int 0;              ;Calling the interrupt we stored at address `0x00`.
-
-    int 1               ;Calling interrupt at address 0x04. Interrupts take 4 bytes in the memory. That is why
-                        ;int 1 is at 0x04 and int 0 at 0x00. These interrupts are only working because at the
-                        ;start of the code, we are originating from `0`. 
-
-    mov si, message     ;storing the address of the message label into the `si` register (register to process strings [arrays])
+    mov al, 1           ;ONE SECTOR TO READ
     
-    call print          ;calling the `print` routine
+    mov ch, 0           ;Cylinder low eight bits
+    
+    mov cl, 2           ;Read sector two
+    
+    mov dh, 0           ;Head number
+    
+    mov bx, buffer      ;pointing bx register to buffer label
+    
+    int 0x13            ;IMPORTANT: Interrupt to load another sector from Hard Disk
+
+    jc error            ;Jump carry instruction used to move to the error label address in case the carry flag is set.
+
+    mov si, buffer      ;Printing the message inside `message.txt`
+
+    call print
+
+    jmp $
+
+
+error:
+    mov si, error_message
+    
+    call print
 
     jmp $               ;similar to while true, this jump statement will keep on jumping back to itself, keeping the
                         ;program alive and preventing execution of the code below, which we really won't want to at this point
@@ -106,8 +106,8 @@ print_char:
 
     ret
 
-message: db 'Hello World!', 0   ;created some data bytes that say hello world, followed by the null terminator in the end
-                                ;which is later used to compare the end of the string.
+
+error_message: db 'Failed to load message', 0
 
 
 times 510-($ - $$) db 0     ;`db` stands for data bytes. We are padding data upto 510 bytes with zeroes.
@@ -116,6 +116,9 @@ times 510-($ - $$) db 0     ;`db` stands for data bytes. We are padding data upt
 
 dw 0xAA55           ;Entering the 511th and 512th bytes as `0x55AA` for the `boot signature` which is necessary for the
                     ;bootloader to work. The 512 bytes in total comprises of our `boot sector`.
+
+
+buffer:
 
 
 ;NOTE: This project can be booted using the `Qemu` qemu-system-x86_64 emulator. Pass `-hda` as the argument when running
