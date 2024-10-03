@@ -16,6 +16,20 @@ times 33 db 0           ;Reserving 33 bytes for the BIOS Parameter Block configu
 start:
     jmp 0x7c0:main      ;Ensuring that our `code segment` is also 0x7c0
 
+handle_zero:            ;Custom Interupt definition for `int 0`. This interrupt definition when called will print
+    mov ah, 0eh         ;the character `A` on the screen. Although to make it work, we will have to modify the
+    mov al, 'A'         ;interrupt vector table.
+    mov bx, 0x00
+    int 0x10
+    iret
+
+handle_one:             ;Creating another custom interrupt like the previous one. Only that this one prints out `V` on
+    mov ah, 0eh         ;the screen.       
+    mov al, 'V'
+    mov bx, 0x00
+    int 0x10
+    iret
+
 main:
     cli                 ;Clearing (disabiling) Interrupts. We have done so, because we would be changing the values of the 
                         ;segment registers and we wouldn't want some hardware interrupt now to interrupt us while we are 
@@ -38,6 +52,18 @@ main:
                         ;of this, it will not interfere with the memory that will be used by our bootloader.
 
     sti                 ;Enable Interrupts
+
+    mov word[ss:0x00], handle_zero  ;Moving and storing our `handle_zero` interrupt at the address 0x00
+    mov word[ss:0x02], 0x7c0        ;Moving the boot segment value at address 0x02
+
+    mov word[ss:0x04], handle_one   ;same as above
+    mov word[ss:0x06], 0x7c0
+
+    ;int 0;              ;Calling the interrupt we stored at address `0x00`.
+
+    int 1               ;Calling interrupt at address 0x04. Interrupts take 4 bytes in the memory. That is why
+                        ;int 1 is at 0x04 and int 0 at 0x00. These interrupts are only working because at the
+                        ;start of the code, we are originating from `0`. 
 
     mov si, message     ;storing the address of the message label into the `si` register (register to process strings [arrays])
     
